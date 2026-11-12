@@ -9,7 +9,7 @@ export interface Category { id:number; name:string; slug:string; description:str
 export interface CategoryPayload { name:string; slug?:string; description?:string|null; isActive?:boolean }
 export interface ProductImage {id:number; imageUrl:string; isPrimary:boolean; sortOrder:number}
 export interface ImagePayload {imageUrl:string; isPrimary?:boolean; sortOrder?:number}
-export interface Product { id:number; name:string; description:string|null; price:number; categoryId:number; category:Category|null; isActive:boolean; images:ProductImage[]; createdAt:string; updatedAt:string }
+export interface Product { id:number; name:string; description:string|null; price:number; availableQuantity:number|null; categoryId:number; category:Category|null; isActive:boolean; images:ProductImage[]; createdAt:string; updatedAt:string }
 export interface ProductPayload { name:string; description?:string|null; price:number; categoryId:number; isActive?:boolean; images?:ImagePayload[] }
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
 export interface OrderItem { id:number; productId:number; productName:string|null; quantity:number; unitPrice:number; lineTotal:number }
