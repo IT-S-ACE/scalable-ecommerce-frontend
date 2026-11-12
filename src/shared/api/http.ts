@@ -10,14 +10,24 @@ export const sessionStore={
 };
 export class ApiError extends Error {constructor(message:string,public status:number){super(message);this.name='ApiError'}}
 const params=(values?:SearchFilters)=>{const q=new URLSearchParams();Object.entries(values||{}).forEach(([key,val])=>{if(val!==undefined&&val!==null&&val!=='')q.set(key,String(val));});return q.toString()?`?${q}`:''};
+interface CachedResponse { etag:string; data:unknown }
+const etagCache = new Map<string,CachedResponse>();
 export async function request<T>(path:string,options:RequestInit={}):Promise<T>{
   const token=sessionStore.get()?.accessToken;
   const headers = new Headers(options.headers);
+  const method=(options.method??'GET').toUpperCase();
+  const cacheKey=`${method}:${BASE_URL}${path}`;
+  const cached=method==='GET'?etagCache.get(cacheKey):undefined;
   if(options.body && !headers.has('Content-Type')) headers.set('Content-Type','application/json');
   if(token) headers.set('Authorization',`Bearer ${token}`);
+  if(cached) headers.set('If-None-Match',cached.etag);
   let res:Response;
   try { res=await fetch(`${BASE_URL}${path}`,{...options,headers,cache:'no-store'}); }
   catch {throw new ApiError('تعذّر الاتصال بالخادم. تأكد من تشغيل NestJS وإعدادات الاتصال.',0);}
+  if(res.status===304){
+    if(cached)return cached.data as T;
+    throw new ApiError('استلم الخادم استجابة 304 دون بيانات مخزنة محلياً.',304);
+  }
   if(!res.ok){
     let errorMessage=`فشل الطلب (HTTP ${res.status})`;
     try {const data=await res.json() as {message?:string|string[]};if(data.message) errorMessage=Array.isArray(data.message)?data.message.join('، '):data.message;}catch {/* Non-JSON response */}
@@ -27,7 +37,10 @@ export async function request<T>(path:string,options:RequestInit={}):Promise<T>{
     throw new ApiError(errorMessage,res.status);
   }
   if(res.status===204)return undefined as T;
-  return res.json() as Promise<T>;
+  const data=await res.json() as T;
+  const etag=res.headers.get('ETag');
+  if(method==='GET'&&etag)etagCache.set(cacheKey,{etag,data});
+  return data;
 }
 
 export const json = (method:'POST'|'PATCH',body:unknown):RequestInit=>({method,body:JSON.stringify(body)});
